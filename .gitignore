@@ -1,0 +1,54 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Personal files and directories (home directory)
+.CFUserTextEncoding
+.Trash/
+.cache/
+.claude/
+.claude.json
+.claude.json.backup
+.config/
+.lesshst
+.local/
+.npm/
+.profile
+.python-version
+.ssh/
+.zsh_history
+.zsh_sessions/
+.zshrc
+Applications/
+Desktop/
+Documents/
+Downloads/
+Library/
+Movies/
+Music/
+Pictures/
+Public/
+asaf.huga@gmail.com - Google Drive
+asaf@acid.fun - Google Drive
+
+# Other projects
+nextjs-boilerplate/
+main.py
+pyproject.toml
+uv.lock
