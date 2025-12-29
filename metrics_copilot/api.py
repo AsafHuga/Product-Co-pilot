@@ -1,11 +1,12 @@
 """FastAPI wrapper for Product Metrics Copilot."""
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import tempfile
 import os
 from pathlib import Path
+from typing import Optional
 
 from metrics_copilot.cli import analyze_csv
 
@@ -36,12 +37,16 @@ async def root():
 
 
 @app.post("/analyze")
-async def analyze_metrics(file: UploadFile = File(...)):
+async def analyze_metrics(
+    file: UploadFile = File(...),
+    use_llm: bool = Query(True, description="Use LLM for enhanced insights")
+):
     """
     Analyze a CSV file and return insights.
 
     Args:
         file: CSV file upload
+        use_llm: Whether to use OpenAI LLM for enhanced insights (default: True)
 
     Returns:
         JSON with analysis results
@@ -61,7 +66,7 @@ async def analyze_metrics(file: UploadFile = File(...)):
         output_path = temp_path.replace('.csv', '_report.json')
 
         # Run analysis
-        report = analyze_csv(temp_path, output_json=output_path)
+        report = analyze_csv(temp_path, output_json=output_path, use_llm=use_llm)
 
         # Convert report to dict
         result = report.to_dict()
@@ -86,12 +91,16 @@ async def analyze_metrics(file: UploadFile = File(...)):
 
 
 @app.post("/analyze/quick")
-async def quick_analyze(file: UploadFile = File(...)):
+async def quick_analyze(
+    file: UploadFile = File(...),
+    use_llm: bool = Query(True, description="Use LLM for enhanced insights")
+):
     """
     Quick analysis returning only key insights (faster response).
 
     Args:
         file: CSV file upload
+        use_llm: Whether to use OpenAI LLM for enhanced insights (default: True)
 
     Returns:
         JSON with executive summary and key findings
@@ -108,7 +117,7 @@ async def quick_analyze(file: UploadFile = File(...)):
 
     try:
         # Run analysis
-        report = analyze_csv(temp_path)
+        report = analyze_csv(temp_path, use_llm=use_llm)
 
         # Return only key insights
         result = {

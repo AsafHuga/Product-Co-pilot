@@ -13,17 +13,41 @@ from metrics_copilot.schemas import (
     TrendSummary,
 )
 
+# Optional LLM integration
+try:
+    from .llm_insights import create_llm_generator, is_llm_available
+    LLM_ENABLED = True
+except ImportError:
+    LLM_ENABLED = False
 
-def generate_hypotheses(report: AnalysisReport, df: pd.DataFrame) -> List[Hypothesis]:
+
+def generate_hypotheses(
+    report: AnalysisReport,
+    df: pd.DataFrame,
+    use_llm: bool = True
+) -> List[Hypothesis]:
     """Generate hypotheses about what happened in the data.
 
     Args:
         report: Analysis report with all findings
         df: Original dataframe
+        use_llm: Whether to use LLM for enhanced insights (default: True)
 
     Returns:
         List of hypotheses
     """
+    # Try LLM-enhanced hypotheses first
+    if use_llm and LLM_ENABLED and is_llm_available():
+        try:
+            llm_generator = create_llm_generator()
+            if llm_generator:
+                llm_hypotheses = llm_generator.enhance_hypotheses(report, max_hypotheses=10)
+                if llm_hypotheses:
+                    return llm_hypotheses
+        except Exception as e:
+            print(f"LLM hypothesis generation failed, falling back to rule-based: {e}")
+
+    # Fallback to rule-based hypotheses
     hypotheses = []
 
     # Hypotheses from change points
@@ -458,15 +482,29 @@ def generate_decisions(report: AnalysisReport) -> List[RecommendedDecision]:
     return decisions[:5]
 
 
-def generate_executive_summary(report: AnalysisReport) -> List[str]:
+def generate_executive_summary(report: AnalysisReport, use_llm: bool = True) -> List[str]:
     """Generate executive summary bullets.
 
     Args:
         report: Analysis report
+        use_llm: Whether to use LLM for enhanced summary (default: True)
 
     Returns:
         List of summary bullets
     """
+    # Try LLM-enhanced summary first
+    if use_llm and LLM_ENABLED and is_llm_available():
+        try:
+            llm_generator = create_llm_generator()
+            if llm_generator:
+                llm_summary = llm_generator.generate_executive_summary(report)
+                if llm_summary:
+                    # Return as bullet list (split by periods or newlines)
+                    return [s.strip() for s in llm_summary.split('.') if s.strip()]
+        except Exception as e:
+            print(f"LLM summary generation failed, falling back to rule-based: {e}")
+
+    # Fallback to rule-based summary
     bullets = []
 
     # Data overview

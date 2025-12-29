@@ -18,6 +18,9 @@ env/
 *.swo
 .DS_Store
 
+# Environment variables (contains secrets)
+.env
+
 # Personal files and directories (home directory)
 .CFUserTextEncoding
 .Trash/

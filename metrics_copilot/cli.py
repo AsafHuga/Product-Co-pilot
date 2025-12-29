@@ -22,7 +22,10 @@ from metrics_copilot.schemas import AnalysisReport, Anomaly
 
 
 def analyze_csv(
-    file_path: str, output_json: Optional[str] = None, output_markdown: Optional[str] = None
+    file_path: str,
+    output_json: Optional[str] = None,
+    output_markdown: Optional[str] = None,
+    use_llm: bool = True
 ) -> AnalysisReport:
     """Main analysis pipeline.
 
@@ -30,6 +33,7 @@ def analyze_csv(
         file_path: Path to CSV file
         output_json: Path to save JSON report
         output_markdown: Path to save markdown report
+        use_llm: Whether to use LLM for enhanced insights
 
     Returns:
         Analysis report
@@ -135,7 +139,9 @@ def analyze_csv(
     )
 
     # Generate insights
-    report.hypotheses = generate_hypotheses(report, df)
+    if use_llm:
+        print("  🤖 Using LLM-enhanced insights...")
+    report.hypotheses = generate_hypotheses(report, df, use_llm=use_llm)
     report.next_checks = generate_next_checks(report)
     report.recommended_decisions = generate_decisions(report)
 
@@ -144,7 +150,7 @@ def analyze_csv(
     print(f"  ✓ Generated {len(report.recommended_decisions)} decisions")
 
     # Generate executive summary
-    exec_summary = generate_executive_summary(report)
+    exec_summary = generate_executive_summary(report, use_llm=use_llm)
 
     # Print summary to console
     print_summary(report, exec_summary)
@@ -376,6 +382,15 @@ def main():
     parser.add_argument(
         "--markdown", "-m", dest="output_markdown", help="Path to save Markdown report (optional)", default=None
     )
+    parser.add_argument(
+        "--use-llm", dest="use_llm", action="store_true",
+        help="Use OpenAI LLM for enhanced insights (requires OPENAI_API_KEY env var)"
+    )
+    parser.add_argument(
+        "--no-llm", dest="use_llm", action="store_false",
+        help="Disable LLM and use rule-based insights only"
+    )
+    parser.set_defaults(use_llm=True)  # Default to True if available
 
     args = parser.parse_args()
 
@@ -385,7 +400,7 @@ def main():
         sys.exit(1)
 
     try:
-        analyze_csv(args.csv_file, args.output_json, args.output_markdown)
+        analyze_csv(args.csv_file, args.output_json, args.output_markdown, use_llm=args.use_llm)
     except Exception as e:
         print(f"\n❌ Error during analysis: {e}", file=sys.stderr)
         import traceback
