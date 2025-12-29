@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Metrics Copilot - Test Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto p-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">Product Metrics Copilot</h1>
+        <p class="text-gray-600 mb-8">Upload a CSV file to get automated product analytics and insights</p>
+
+        <!-- File Upload -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <input type="file" id="fileInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+                <label for="fileInput" class="mt-4 cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    Choose CSV File
+                </label>
+                <p class="mt-2 text-xs text-gray-500">Upload your product metrics CSV file</p>
+            </div>
+
+            <div id="fileInfo" class="mt-4 hidden">
+                <div class="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="h-5 w-5 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                        </svg>
+                        <span id="fileName" class="text-sm font-medium text-gray-900"></span>
+                    </div>
+                    <button onclick="analyzeFile()" id="analyzeBtn" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+                        Analyze
+                    </button>
+                </div>
+            </div>
+
+            <div id="loading" class="mt-4 hidden">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-3 text-gray-600">Analyzing your metrics...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden space-y-6">
+            <!-- Executive Summary -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">📊 Executive Summary</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600">Rows Analyzed</p>
+                        <p id="rowCount" class="text-3xl font-bold text-blue-600">-</p>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600">Data Mode</p>
+                        <p id="dataMode" class="text-3xl font-bold text-green-600">-</p>
+                    </div>
+                </div>
+                <div id="timeRange" class="mt-4 hidden">
+                    <p class="text-sm text-gray-600">Time Range</p>
+                    <p id="timeRangeText" class="text-lg font-medium text-gray-900"></p>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">📈 Detected KPIs</h2>
+                <div id="kpisList" class="space-y-2"></div>
+            </div>
+
+            <!-- Trends -->
+            <div id="trendsSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">📉 Top Trends</h2>
+                <div id="trendsList" class="space-y-3"></div>
+            </div>
+
+            <!-- Change Points -->
+            <div id="changePointsSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">🔔 Major Change Points</h2>
+                <div id="changePointsList" class="space-y-3"></div>
+            </div>
+
+            <!-- Hypotheses -->
+            <div id="hypothesesSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">💡 Hypotheses</h2>
+                <div id="hypothesesList" class="space-y-4"></div>
+            </div>
+
+            <!-- Decisions -->
+            <div id="decisionsSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">✅ Recommended Decisions</h2>
+                <div id="decisionsList" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        function handleFileSelect(event) {
+            selectedFile = event.target.files[0];
+            if (selectedFile) {
+                document.getElementById('fileName').textContent = selectedFile.name;
+                document.getElementById('fileInfo').classList.remove('hidden');
+                document.getElementById('results').classList.add('hidden');
+            }
+        }
+
+        async function analyzeFile() {
+            if (!selectedFile) return;
+
+            // Show loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('analyzeBtn').disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('http://localhost:8000/analyze/quick', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('Analysis failed');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                alert('Error analyzing file: ' + error.message);
+                console.error(error);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            // Show results section
+            document.getElementById('results').classList.remove('hidden');
+
+            // Executive Summary
+            document.getElementById('rowCount').textContent = data.executive_summary.row_count.toLocaleString();
+            document.getElementById('dataMode').textContent = data.executive_summary.data_mode;
+
+            if (data.executive_summary.time_range) {
+                document.getElementById('timeRange').classList.remove('hidden');
+                const start = data.executive_summary.time_range.start.split(' ')[0];
+                const end = data.executive_summary.time_range.end.split(' ')[0];
+                document.getElementById('timeRangeText').textContent = `${start} to ${end}`;
+            }
+
+            // KPIs
+            const kpisList = document.getElementById('kpisList');
+            kpisList.innerHTML = data.kpis.map(kpi => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium text-gray-900">${kpi.name}</span>
+                    <div class="flex gap-2">
+                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">${kpi.type}</span>
+                        ${kpi.is_primary ? '<span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">PRIMARY</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // Trends
+            if (data.top_trends && data.top_trends.length > 0) {
+                document.getElementById('trendsSection').classList.remove('hidden');
+                const trendsList = document.getElementById('trendsList');
+                trendsList.innerHTML = data.top_trends.map(trend => {
+                    const color = trend.change_pct > 0 ? 'green' : trend.change_pct < 0 ? 'red' : 'gray';
+                    const arrow = trend.change_pct > 0 ? '↑' : trend.change_pct < 0 ? '↓' : '→';
+                    return `
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <div>
+                                <span class="font-medium text-gray-900">${trend.kpi}</span>
+                                <span class="ml-2 text-sm text-gray-500">${trend.direction}</span>
+                            </div>
+                            <span class="px-3 py-1 bg-${color}-100 text-${color}-800 font-semibold rounded">
+                                ${arrow} ${Math.abs(trend.change_pct).toFixed(1)}%
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Change Points
+            if (data.top_change_points && data.top_change_points.length > 0) {
+                document.getElementById('changePointsSection').classList.remove('hidden');
+                const changePointsList = document.getElementById('changePointsList');
+                changePointsList.innerHTML = data.top_change_points.map(cp => {
+                    const confidenceColor = cp.confidence === 'high' ? 'green' : cp.confidence === 'medium' ? 'yellow' : 'red';
+                    return `
+                        <div class="p-4 border border-gray-200 rounded-lg">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium text-gray-900">${cp.kpi}</span>
+                                <span class="px-2 py-1 bg-${confidenceColor}-100 text-${confidenceColor}-800 text-xs font-semibold rounded">
+                                    ${cp.confidence.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600">${cp.date.split(' ')[0]}: ${cp.delta_pct > 0 ? '+' : ''}${cp.delta_pct.toFixed(1)}% change</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Hypotheses
+            if (data.top_hypotheses && data.top_hypotheses.length > 0) {
+                document.getElementById('hypothesesSection').classList.remove('hidden');
+                const hypothesesList = document.getElementById('hypothesesList');
+                hypothesesList.innerHTML = data.top_hypotheses.map((hyp, i) => {
+                    const confidenceColor = hyp.confidence === 'high' ? 'green' : hyp.confidence === 'medium' ? 'yellow' : 'red';
+                    return `
+                        <div class="p-4 border-l-4 border-${confidenceColor}-500 bg-gray-50 rounded">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="px-2 py-1 bg-${confidenceColor}-100 text-${confidenceColor}-800 text-xs font-semibold rounded">
+                                    ${hyp.confidence.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="text-gray-900">${hyp.description}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Decisions
+            if (data.recommended_decisions && data.recommended_decisions.length > 0) {
+                document.getElementById('decisionsSection').classList.remove('hidden');
+                const decisionsList = document.getElementById('decisionsList');
+                decisionsList.innerHTML = data.recommended_decisions.map(decision => {
+                    const confidenceColor = decision.confidence === 'high' ? 'green' : decision.confidence === 'medium' ? 'yellow' : 'red';
+                    return `
+                        <div class="p-6 border-2 border-${confidenceColor}-200 rounded-lg bg-${confidenceColor}-50">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="px-3 py-1 bg-${confidenceColor}-100 text-${confidenceColor}-800 text-sm font-semibold rounded">
+                                    ${decision.confidence.toUpperCase()}
+                                </span>
+                                <h3 class="text-lg font-bold text-gray-900">${decision.decision}</h3>
+                            </div>
+                            <p class="text-gray-700">${decision.rationale}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Scroll to results
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
