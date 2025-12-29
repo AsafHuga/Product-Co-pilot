@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 API Connection Test</h1>
+
+    <div class="info status">
+        <strong>API URL:</strong> http://localhost:8000
+    </div>
+
+    <button onclick="testConnection()">Test API Connection</button>
+    <button onclick="testUpload()">Test File Upload</button>
+
+    <div id="result"></div>
+
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info status">Testing connection...</div>';
+
+            try {
+                const response = await fetch('http://localhost:8000/');
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <div class="success status">
+                        ✅ API is Connected!
+                    </div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error status">
+                        ❌ Connection Failed
+                    </div>
+                    <pre>Error: ${error.message}
+
+Possible issues:
+1. API server not running (run: ./test_api.sh)
+2. Wrong URL (should be http://localhost:8000)
+3. CORS issue (API should handle this)</pre>
+                `;
+            }
+        }
+
+        async function testUpload() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info status">Testing file upload...</div>';
+
+            // Create a simple test CSV
+            const csvContent = 'date,metric\n2024-01-01,100\n2024-01-02,150';
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const file = new File([blob], 'test.csv', { type: 'text/csv' });
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8000/analyze/quick', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <div class="success status">
+                        ✅ File Upload Works!
+                    </div>
+                    <p><strong>Analysis completed successfully</strong></p>
+                    <details>
+                        <summary>View Response (click to expand)</summary>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error status">
+                        ❌ Upload Failed
+                    </div>
+                    <pre>Error: ${error.message}
+
+This is what Lovable will see if there's an issue.
+Check:
+1. API server is running
+2. CORS is enabled (should be automatic)
+3. Network tab in browser dev tools for details</pre>
+                `;
+            }
+        }
+
+        // Auto-test on load
+        window.onload = () => testConnection();
+    </script>
+</body>
+</html>
