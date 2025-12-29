@@ -10,6 +10,13 @@ from typing import List, Dict, Any, Optional
 from dataclasses import asdict
 import json
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file if it exists
+except ImportError:
+    pass  # dotenv not required, can use system env vars
+
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
@@ -30,13 +37,13 @@ from .schemas import (
 class LLMInsightGenerator:
     """Generate natural language insights using OpenAI's GPT models."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4-turbo-preview"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
         """
         Initialize the LLM client.
 
         Args:
             api_key: OpenAI API key (if None, reads from OPENAI_API_KEY env var)
-            model: Model to use (default: gpt-4-turbo-preview)
+            model: Model to use (default: gpt-4o-mini - fast and affordable)
         """
         if not OPENAI_AVAILABLE:
             raise ImportError(
@@ -126,10 +133,11 @@ Return ONLY a JSON array of hypotheses in this exact format:
             hypotheses = []
             for h in hypotheses_list[:max_hypotheses]:
                 hypotheses.append(Hypothesis(
-                    hypothesis=h.get("hypothesis", ""),
+                    description=h.get("hypothesis", ""),
                     confidence=h.get("confidence", "medium"),
                     supporting_evidence=h.get("supporting_evidence", []),
-                    checks_to_validate=h.get("checks_to_validate", [])
+                    related_kpis=h.get("related_kpis", []),
+                    related_segments=h.get("related_segments", [])
                 ))
 
             return hypotheses
@@ -291,7 +299,7 @@ Return ONLY a JSON array in this exact format:
             for trend in report.overall_trends[:3]:
                 direction = "↗️ up" if trend.direction == "increasing" else "↘️ down"
                 trends_summary.append(
-                    f"{trend.metric} {direction} {trend.percent_change:+.1f}%"
+                    f"{trend.kpi} {direction} {trend.overall_change_pct:+.1f}%"
                 )
             context_parts.append("TRENDS: " + "; ".join(trends_summary))
 
@@ -299,9 +307,9 @@ Return ONLY a JSON array in this exact format:
         if report.change_points:
             changes_summary = []
             for cp in report.change_points[:3]:
-                direction = "jump" if cp.magnitude > 0 else "drop"
+                direction = "jump" if cp.delta_pct > 0 else "drop"
                 changes_summary.append(
-                    f"{cp.metric} {direction} of {abs(cp.magnitude):.1f}% on {cp.date}"
+                    f"{cp.kpi} {direction} of {abs(cp.delta_pct):.1f}% on {cp.date}"
                 )
             context_parts.append("CHANGES: " + "; ".join(changes_summary))
 
@@ -309,9 +317,9 @@ Return ONLY a JSON array in this exact format:
         if report.experiment_results:
             exp_summary = []
             for exp in report.experiment_results[:2]:
-                sig = "significant" if exp.is_significant else "not significant"
+                sig = "significant" if exp.significant else "not significant"
                 exp_summary.append(
-                    f"{exp.metric}: {exp.uplift_percent:+.1f}% uplift ({sig})"
+                    f"{exp.kpi}: {exp.uplift_pct:+.1f}% uplift ({sig})"
                 )
             context_parts.append("EXPERIMENTS: " + "; ".join(exp_summary))
 
@@ -319,8 +327,9 @@ Return ONLY a JSON array in this exact format:
         if report.segment_drivers:
             seg_summary = []
             for seg in report.segment_drivers[:2]:
+                segment_name = f"{seg.segment_column}={seg.segment_value}"
                 seg_summary.append(
-                    f"{seg.segment_name} drives {seg.percent_contribution:.1f}% of change"
+                    f"{segment_name} drives {seg.contribution_pct:.1f}% of {seg.kpi}"
                 )
             context_parts.append("SEGMENTS: " + "; ".join(seg_summary))
 
@@ -334,7 +343,7 @@ def is_llm_available() -> bool:
 
 def create_llm_generator(
     api_key: Optional[str] = None,
-    model: str = "gpt-4-turbo-preview"
+    model: str = "gpt-4o-mini"
 ) -> Optional[LLMInsightGenerator]:
     """
     Create an LLM generator if available.
