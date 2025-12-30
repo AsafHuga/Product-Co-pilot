@@ -15,16 +15,17 @@ from metrics_copilot.data_transformer import auto_transform_data, preview_transf
 app = FastAPI(
     title="Product Metrics Copilot API",
     description="Automated product analytics and insights API",
-    version="0.1.0"
+    version="0.1.1"
 )
 
-# Enable CORS for Lovable frontend
+# Enable CORS for all origins (frontend can be anywhere)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your Lovable app domain
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Set to False when using allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
