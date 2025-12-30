@@ -7,11 +7,12 @@
  * smooth animations, and premium design language.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Upload, TrendingUp, TrendingDown, AlertCircle, Brain,
   Sparkles, FileText, BarChart3, Zap, Activity, Target,
-  ArrowUpRight, ArrowDownRight, Clock, Users, Lightbulb
+  ArrowUpRight, ArrowDownRight, Clock, Users, Lightbulb,
+  Shield, Lock, Trash2, CheckCircle2, X
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,6 +81,8 @@ export default function MetricsAnalyzer() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -193,6 +196,44 @@ export default function MetricsAnalyzer() {
     );
   };
 
+  // Auto-advance onboarding steps
+  useEffect(() => {
+    if (showOnboarding && currentStep < 2) {
+      const timer = setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showOnboarding, currentStep]);
+
+  // Close onboarding on first interaction
+  useEffect(() => {
+    if (file && showOnboarding) {
+      setShowOnboarding(false);
+    }
+  }, [file, showOnboarding]);
+
+  const privacySteps = [
+    {
+      icon: Upload,
+      title: "1. Upload Your Data",
+      description: "Upload any CSV file with your metrics. All formats supported.",
+      color: "violet"
+    },
+    {
+      icon: Brain,
+      title: "2. AI Analyzes Instantly",
+      description: "Our AI processes your data in real-time to generate insights.",
+      color: "indigo"
+    },
+    {
+      icon: Trash2,
+      title: "3. Data Auto-Deleted",
+      description: "Your data is permanently deleted immediately after analysis. Zero storage.",
+      color: "emerald"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Premium Header with Glassmorphism */}
@@ -213,13 +254,135 @@ export default function MetricsAnalyzer() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Powered by GPT-4o</p>
               </div>
             </div>
-            <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 border-0">
-              <Sparkles className="w-3 h-3 mr-1" />
-              AI-Powered
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-0">
+                <Shield className="w-3 h-3 mr-1" />
+                100% Private
+              </Badge>
+              <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 border-0">
+                <Sparkles className="w-3 h-3 mr-1" />
+                AI-Powered
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Animated Onboarding Overlay */}
+      {showOnboarding && !results && (
+        <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <Card className="max-w-4xl w-full border-2 border-violet-200 dark:border-violet-800 shadow-2xl animate-in slide-in-from-bottom-8 duration-500">
+            <CardHeader className="text-center pb-4">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex-1" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowOnboarding(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-sm font-medium mb-4">
+                <Shield className="w-4 h-4" />
+                Your Data is 100% Private & Secure
+              </div>
+              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-violet-900 dark:from-white dark:to-violet-200 bg-clip-text text-transparent">
+                How It Works - Privacy First
+              </CardTitle>
+              <CardDescription className="text-base mt-2">
+                We never store your data. Here's the complete process:
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                {privacySteps.map((step, idx) => {
+                  const Icon = step.icon;
+                  const isActive = idx === currentStep;
+                  const isPast = idx < currentStep;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative transition-all duration-500 ${
+                        isActive ? 'scale-105' : isPast ? 'opacity-70' : 'opacity-50'
+                      }`}
+                    >
+                      <div className={`p-6 rounded-xl border-2 h-full transition-all duration-500 ${
+                        isActive
+                          ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 shadow-lg shadow-violet-500/20'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
+                      }`}>
+                        <div className={`inline-flex items-center justify-center w-14 h-14 rounded-full mb-4 transition-all duration-500 ${
+                          isActive
+                            ? step.color === 'violet' ? 'bg-gradient-to-r from-violet-500 to-violet-600' :
+                              step.color === 'indigo' ? 'bg-gradient-to-r from-indigo-500 to-indigo-600' :
+                              'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                            : 'bg-slate-200 dark:bg-slate-800'
+                        }`}>
+                          <Icon className={`h-7 w-7 transition-colors ${
+                            isActive ? 'text-white' : 'text-slate-400 dark:text-slate-600'
+                          }`} />
+                        </div>
+                        <h3 className="text-lg font-bold mb-2">{step.title}</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{step.description}</p>
+
+                        {isActive && (
+                          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                              {idx === 0 && "Ready to upload"}
+                              {idx === 1 && "Processing in real-time"}
+                              {idx === 2 && "Auto-deletion guaranteed"}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {isPast && (
+                        <div className="absolute -top-2 -right-2">
+                          <div className="bg-emerald-500 text-white rounded-full p-1">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900">
+                <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <AlertTitle className="text-emerald-900 dark:text-emerald-200">
+                  Zero Data Retention Policy
+                </AlertTitle>
+                <AlertDescription className="text-emerald-700 dark:text-emerald-300">
+                  <ul className="space-y-1 mt-2 text-sm">
+                    <li>✓ Your data is processed in memory only</li>
+                    <li>✓ Permanently deleted immediately after analysis</li>
+                    <li>✓ No databases, no backups, no logs containing your data</li>
+                    <li>✓ We only see aggregated, anonymous insights - never raw data</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div className="mt-6 text-center">
+                <Button
+                  onClick={() => setShowOnboarding(false)}
+                  size="lg"
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-8"
+                >
+                  Got it! Let's Analyze
+                </Button>
+                <p className="text-xs text-slate-500 mt-3">
+                  This message won't show again
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Hero Section */}
@@ -237,6 +400,20 @@ export default function MetricsAnalyzer() {
             <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
               Upload your metrics CSV and let AI analyze trends, detect anomalies, and provide intelligent recommendations.
             </p>
+            <div className="flex items-center justify-center gap-6 pt-4 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-emerald-600" />
+                <span>Zero data retention</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-emerald-600" />
+                <span>Auto-deleted instantly</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-emerald-600" />
+                <span>Never stored</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -354,6 +531,16 @@ export default function MetricsAnalyzer() {
                   </>
                 )}
               </Button>
+
+              {/* Privacy Notice */}
+              <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900">
+                <div className="flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                  <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    <strong>Privacy Guaranteed:</strong> Your data is processed in-memory and <strong>permanently deleted immediately</strong> after analysis. We never store, log, or retain your raw data.
+                  </p>
+                </div>
+              </div>
 
               {loading && progress > 0 && (
                 <div className="mt-6 space-y-3">

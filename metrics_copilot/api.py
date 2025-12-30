@@ -34,7 +34,14 @@ async def root():
     return {
         "name": "Product Metrics Copilot API",
         "version": "0.1.0",
-        "status": "healthy"
+        "status": "healthy",
+        "privacy_policy": {
+            "data_retention": "zero",
+            "storage": "in-memory only",
+            "deletion": "immediate after analysis",
+            "logging": "no raw data logged",
+            "guarantee": "Your data is never stored, backed up, or retained in any form"
+        }
     }
 
 
