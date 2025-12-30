@@ -262,7 +262,7 @@ def ingest_csv(file_path: str) -> Tuple[pd.DataFrame, dict]:
         first_row = df.iloc[0]
         # Check if first row values look like column names (all strings, no numbers)
         first_row_looks_like_headers = all(
-            isinstance(val, str) and not val.replace('.', '').replace('-', '').replace('/', '').isdigit()
+            isinstance(val, str) and not str(val).replace('.', '').replace('-', '').replace('/', '').isdigit()
             for val in first_row if pd.notna(val)
         )
 
