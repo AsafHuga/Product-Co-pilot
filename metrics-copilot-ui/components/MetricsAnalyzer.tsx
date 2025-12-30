@@ -135,23 +135,30 @@ export default function MetricsAnalyzer() {
       const formData = new FormData();
       formData.append('file', file);
 
+      console.log('Sending request to:', `${API_URL}/analyze/quick`);
+
       const response = await fetch(`${API_URL}/analyze/quick`, {
         method: 'POST',
         body: formData,
+        mode: 'cors',
       });
 
       clearInterval(progressInterval);
       setProgress(100);
 
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`Analysis failed (${response.status}): ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('Analysis successful:', data);
       setResults(data);
     } catch (err) {
       clearInterval(progressInterval);
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      console.error('Fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Analysis failed. Check console for details.');
     } finally {
       setLoading(false);
       setTimeout(() => setProgress(0), 1000);

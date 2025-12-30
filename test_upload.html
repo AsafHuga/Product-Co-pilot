@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Railway API Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        #dropZone {
+            border: 3px dashed #ccc;
+            border-radius: 20px;
+            padding: 50px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        #dropZone.dragover {
+            border-color: #6366f1;
+            background: #f0f0ff;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+        }
+        .success {
+            background: #efe;
+            color: #060;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Test Railway API Upload</h1>
+    <p>API: <strong>https://web-production-55d55.up.railway.app</strong></p>
+
+    <div id="dropZone">
+        <p>📁 Drop CSV file here or click to select</p>
+        <input type="file" id="fileInput" accept=".csv" style="display:none">
+    </div>
+
+    <p id="fileName"></p>
+
+    <button id="analyzeBtn" disabled>Analyze with AI</button>
+
+    <div id="result"></div>
+
+    <script>
+        const API_URL = 'https://web-production-55d55.up.railway.app';
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const result = document.getElementById('result');
+        const fileName = document.getElementById('fileName');
+        let selectedFile = null;
+
+        // Click to select
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // File selected
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                selectedFile = e.target.files[0];
+                fileName.textContent = `Selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) {
+                selectedFile = e.dataTransfer.files[0];
+                fileName.textContent = `Selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        // Analyze button
+        analyzeBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
+            result.textContent = 'Uploading and analyzing...';
+            result.className = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                console.log('Sending request to:', `${API_URL}/analyze/quick`);
+
+                const response = await fetch(`${API_URL}/analyze/quick`, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Success:', data);
+
+                result.className = 'success';
+                result.textContent = `✅ SUCCESS!\n\nRows: ${data.executive_summary.row_count}\nKPIs: ${data.kpis.length}\nHypotheses: ${data.top_hypotheses.length}\n\nFull response:\n${JSON.stringify(data, null, 2)}`;
+
+            } catch (err) {
+                console.error('Error:', err);
+                result.className = 'error';
+                result.textContent = `❌ ERROR:\n\n${err.message}\n\nCheck browser console for details.`;
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze with AI';
+            }
+        });
+    </script>
+</body>
+</html>

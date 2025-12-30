@@ -254,6 +254,26 @@ def ingest_csv(file_path: str) -> Tuple[pd.DataFrame, dict]:
     df = pd.read_csv(file_path, encoding=encoding, sep=delimiter)
     metadata["original_shape"] = df.shape
 
+    # Detect if first row is actually the header (common export issue)
+    # Check if current headers look generic (Unnamed, numbered, etc.) but first row looks like column names
+    has_unnamed_cols = any('unnamed' in str(col).lower() for col in df.columns)
+
+    if has_unnamed_cols and len(df) > 0:
+        first_row = df.iloc[0]
+        # Check if first row values look like column names (all strings, no numbers)
+        first_row_looks_like_headers = all(
+            isinstance(val, str) and not val.replace('.', '').replace('-', '').replace('/', '').isdigit()
+            for val in first_row if pd.notna(val)
+        )
+
+        if first_row_looks_like_headers:
+            # Use first row as headers
+            new_columns = first_row.tolist()
+            df = df.iloc[1:].reset_index(drop=True)
+            df.columns = new_columns
+            metadata["transformations"].append("Detected actual headers in first data row, promoted to column names")
+            metadata["original_shape"] = df.shape
+
     # Standardize column names
     original_columns = df.columns.tolist()
     df.columns = [standardize_column_name(col) for col in df.columns]
