@@ -9,7 +9,7 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 import re
-from ingest import (
+from metrics_copilot.ingest import (
     detect_encoding,
     detect_delimiter,
     standardize_column_name,
