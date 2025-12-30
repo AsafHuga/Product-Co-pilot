@@ -417,37 +417,71 @@ export default function MetricsAnalyzer() {
           </div>
         )}
 
-        {/* Premium Upload Card */}
-        <Card className="border-2 border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-indigo-500/5 pointer-events-none"></div>
-          <CardHeader className="relative">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950 dark:to-indigo-950 rounded-lg">
-                  <Upload className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+        {/* Premium Upload Card - Minimized when results shown */}
+        {results ? (
+          // Compact upload section after analysis
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-violet-100 dark:bg-violet-950 rounded-lg">
+                    <FileText className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{file?.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {results.executive_summary.row_count.toLocaleString()} rows analyzed
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg">Upload Your Data</CardTitle>
-                  <CardDescription>Any CSV format • Auto-transforms raw data • Up to 50MB</CardDescription>
-                </div>
-              </div>
-              {file && (
                 <Button
                   onClick={() => {
                     setFile(null);
                     setResults(null);
                     setError(null);
                   }}
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="text-slate-500"
+                  className="gap-2"
                 >
-                  Clear
+                  <Upload className="h-3.5 w-3.5" />
+                  New Analysis
                 </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="relative">
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          // Full upload card before analysis
+          <Card className="border-2 border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-indigo-500/5 pointer-events-none"></div>
+            <CardHeader className="relative">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950 dark:to-indigo-950 rounded-lg">
+                    <Upload className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Upload Your Data</CardTitle>
+                    <CardDescription>Any CSV format • Auto-transforms raw data • Up to 50MB</CardDescription>
+                  </div>
+                </div>
+                {file && (
+                  <Button
+                    onClick={() => {
+                      setFile(null);
+                      setResults(null);
+                      setError(null);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-500"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="relative">
             <div
               className={`relative border-2 border-dashed rounded-xl p-16 text-center transition-all duration-300 ${
                 dragActive
@@ -559,6 +593,7 @@ export default function MetricsAnalyzer() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Results Section */}
         {results && (
