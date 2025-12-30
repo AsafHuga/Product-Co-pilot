@@ -22,7 +22,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 
-const API_URL = 'https://web-production-55d55.up.railway.app';
+// Use environment variable to easily switch between local and deployed API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface AnalysisResults {
   executive_summary: {

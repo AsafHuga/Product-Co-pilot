@@ -50,6 +50,8 @@ def standardize_column_name(col: str) -> str:
     Returns:
         Standardized column name
     """
+    # Convert to string first (in case it's not)
+    col = str(col)
     # Remove special characters, replace spaces/dashes with underscores
     col = re.sub(r'[^\w\s-]', '', col)
     col = re.sub(r'[-\s]+', '_', col)
@@ -188,7 +190,14 @@ def clean_and_validate_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
 
     # Parse numeric columns
     for col in df.columns:
-        if df[col].dtype == 'object':
+        try:
+            dtype_check = df[col].dtype == 'object'
+        except AttributeError:
+            print(f"DEBUG: col = {col}, type = {type(col)}")
+            print(f"DEBUG: df[col] type = {type(df[col])}")
+            print(f"DEBUG: df.columns = {list(df.columns)}")
+            raise
+        if dtype_check:
             # Try to parse as numeric
             original_nulls = df[col].isna().sum()
             parsed = parse_numeric_column(df[col])
@@ -261,14 +270,28 @@ def ingest_csv(file_path: str) -> Tuple[pd.DataFrame, dict]:
     if has_unnamed_cols and len(df) > 0:
         first_row = df.iloc[0]
         # Check if first row values look like column names (all strings, no numbers)
-        first_row_looks_like_headers = all(
-            isinstance(val, str) and not str(val).replace('.', '').replace('-', '').replace('/', '').isdigit()
-            for val in first_row if pd.notna(val)
-        )
+        try:
+            first_row_looks_like_headers = all(
+                isinstance(val, str) and not str(val).replace('.', '').replace('-', '').replace('/', '').isdigit()
+                for val in first_row if pd.notna(val)
+            )
+        except Exception as e:
+            print(f"DEBUG: Error checking headers: {e}")
+            print(f"DEBUG: first_row types: {[type(v) for v in first_row]}")
+            print(f"DEBUG: first_row values: {list(first_row)}")
+            raise
 
         if first_row_looks_like_headers:
             # Use first row as headers
-            new_columns = first_row.tolist()
+            # Handle NaN and empty values by using original column names
+            new_columns = []
+            for i, val in enumerate(first_row.tolist()):
+                if pd.isna(val) or (isinstance(val, str) and val.strip() == ''):
+                    # Keep original unnamed column
+                    new_columns.append(df.columns[i])
+                else:
+                    new_columns.append(str(val))
+
             df = df.iloc[1:].reset_index(drop=True)
             df.columns = new_columns
             metadata["transformations"].append("Detected actual headers in first data row, promoted to column names")

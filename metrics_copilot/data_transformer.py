@@ -312,7 +312,35 @@ def auto_transform_data(file_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     metadata["encoding"] = encoding
     metadata["delimiter"] = delimiter
 
-    # Step 2: Standardize column names
+    # Step 2: Detect if first row is actually the header (common export issue)
+    has_unnamed_cols = any('unnamed' in str(col).lower() for col in df.columns)
+
+    if has_unnamed_cols and len(df) > 0:
+        first_row = df.iloc[0]
+        # Check if first row values look like column names (all strings, no numbers)
+        first_row_looks_like_headers = all(
+            isinstance(val, str) and not str(val).replace('.', '').replace('-', '').replace('/', '').isdigit()
+            for val in first_row if pd.notna(val) and (not isinstance(val, str) or val.strip() != '')
+        )
+
+        if first_row_looks_like_headers:
+            # Use first row as headers
+            new_columns = []
+            for i, val in enumerate(first_row.tolist()):
+                if pd.isna(val) or (isinstance(val, str) and val.strip() == ''):
+                    # Keep original unnamed column
+                    new_columns.append(df.columns[i])
+                else:
+                    new_columns.append(str(val))
+
+            df = df.iloc[1:].reset_index(drop=True)
+            df.columns = new_columns
+            metadata["steps"].append({
+                "step": "promote_first_row_to_header",
+                "new_columns": new_columns
+            })
+
+    # Step 3: Standardize column names
     original_columns = df.columns.tolist()
     df.columns = [standardize_column_name(col) for col in df.columns]
     metadata["steps"].append({
@@ -320,7 +348,7 @@ def auto_transform_data(file_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         "column_mapping": dict(zip(original_columns, df.columns))
     })
 
-    # Step 3: Detect and parse date columns
+    # Step 4: Detect and parse date columns
     date_col, df = detect_date_column(df)
     if date_col:
         metadata["steps"].append({
@@ -328,7 +356,7 @@ def auto_transform_data(file_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
             "date_column": date_col
         })
 
-    # Step 4: Parse numeric columns
+    # Step 5: Parse numeric columns
     for col in df.columns:
         if df[col].dtype == 'object':
             parsed = parse_numeric_column(df[col])
