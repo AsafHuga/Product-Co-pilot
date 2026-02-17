@@ -52,6 +52,14 @@ asaf@acid.fun - Google Drive
 
 # Other projects
 nextjs-boilerplate/
-main.py
-pyproject.toml
-uv.lock
+.antigravity/
+.cursor/
+.gemini/
+.mongodb/
+.ollama/
+
+# Generated reports and analysis output
+reports/
+
+# Backup files
+.claude.json.backup.*
