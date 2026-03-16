@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd boinkers-ui && npm install && npm run build",
+  "outputDirectory": "boinkers-ui/.next",
+  "installCommand": "cd boinkers-ui && npm install",
+  "framework": "nextjs"
+}

@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { Feature, FeatureInput } from '@/lib/supabase'
+import { supabase } from '../../lib/supabase'
+import type { Feature, FeatureInput } from '../../lib/supabase'
 
 /* ═══════════════════════════════════════════════════════════════
    CONFIG
