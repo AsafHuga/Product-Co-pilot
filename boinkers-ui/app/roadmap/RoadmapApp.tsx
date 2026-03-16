@@ -811,12 +811,16 @@ export default function RoadmapApp() {
     setSaveErr(null)
     const normalized = { ...f, start_date: (f as Feature).start_date ?? '' }
     if (modal?.isNew) {
-      const { error } = await supabase.from('features').insert(normalized as FeatureInput)
+      const { data, error } = await supabase.from('features').insert(normalized as FeatureInput).select().single()
       if (error) { setSaving(false); setSaveErr(error.message); return }
+      // Optimistic: append the new feature immediately
+      setFeatures(p => [...p, { ...data, start_date: data.start_date ?? '' }].sort((a,b)=>a.date.localeCompare(b.date)))
     } else {
       const { id, ...updates } = normalized as Feature
+      // Optimistic: update in place immediately
+      setFeatures(p => p.map(feat => feat.id===id ? { ...feat, ...updates } : feat))
       const { error } = await supabase.from('features').update(updates).eq('id', id)
-      if (error) { setSaving(false); setSaveErr(error.message); return }
+      if (error) { setSaving(false); setSaveErr(error.message); loadFeatures(); return }
     }
     setSaving(false)
     setSaveErr(null)
@@ -825,11 +829,10 @@ export default function RoadmapApp() {
 
   async function handleDelete(id: number) {
     if (!window.confirm('Delete this feature?')) return
-    setSaving(true)
-    const { error } = await supabase.from('features').delete().eq('id', id)
-    if (error) setError(error.message)
-    setSaving(false)
+    setFeatures(p => p.filter(f => f.id !== id)) // optimistic
     setModal(null)
+    const { error } = await supabase.from('features').delete().eq('id', id)
+    if (error) { setError(error.message); loadFeatures() } // rollback on error
   }
 
   async function updateDates(id: number, date: string, startDate?: string) {
