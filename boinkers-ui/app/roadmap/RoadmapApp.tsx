@@ -39,8 +39,8 @@ const MONTHS_LIST = [
   { year:2026, month:4, name:'May 2026'   },
 ]
 const TODAY       = new Date(2026, 2, 16)
-const TL_START    = new Date(2026, 2, 15)
-const TL_END      = new Date(2026, 4, 10)
+const TL_START    = new Date(2026, 0, 1)   // Jan 1 — gives room to scroll back
+const TL_END      = new Date(2026, 5, 30)  // Jun 30
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS
