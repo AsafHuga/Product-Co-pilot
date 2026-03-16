@@ -54,7 +54,7 @@ const firstDayOf   = (y: number, m: number) => new Date(y,m,1).getDay()
 const dateToStr    = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
 const EMPTY: FeatureInput = {
-  name:'', date:'2026-03-18', description:'',
+  name:'', date:'2026-03-18', start_date:'', description:'',
   cat:'Core Gameplay', status:'Planned', impact:'Medium', owner:'Product',
 }
 
@@ -75,7 +75,11 @@ function FeatureForm({ form, onChange }: { form: FeatureInput; onChange: (k: key
         <LBL>Description</LBL>
         <textarea className="rm-input" value={form.description} onChange={e=>onChange('description',e.target.value)} placeholder="One sentence describing this feature…" />
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+        <div>
+          <LBL>Start Date</LBL>
+          <input type="date" className="rm-input" value={form.start_date} onChange={e=>onChange('start_date',e.target.value)} />
+        </div>
         <div>
           <LBL>Launch Date *</LBL>
           <input type="date" className="rm-input" value={form.date} onChange={e=>onChange('date',e.target.value)} />
@@ -171,7 +175,9 @@ function FeatureModal({ feature, isNew, saving, onClose, onSave, onDelete }: Mod
             {form.description && <p style={{ fontSize:13, color:'rgba(255,255,255,0.62)', lineHeight:1.65, marginBottom:16 }}>{form.description}</p>}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
               {[
-                { l:'Launch Date', v:fmtLong(form.date), i:'📅' },
+                { l: form.start_date ? 'Date Range' : 'Launch Date',
+                  v: form.start_date ? `${fmtShort(parseDate(form.start_date))} → ${fmtShort(parseDate(form.date))}` : fmtLong(form.date),
+                  i:'📅' },
                 { l:'Owner',       v:form.owner,         i:'👤' },
                 { l:'Category',    v:form.cat,           i:c.icon },
                 { l:'Impact',      v:form.impact,        i:form.impact==='High'?'🔥':form.impact==='Medium'?'⚡':'—' },
@@ -252,7 +258,9 @@ function FeatureCard({ feature, onEdit, onDragStart, onDragEnd, isDragging=false
       </div>
       {!compact && (
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:9, position:'relative' }}>
-          <span style={{ fontFamily:'var(--font-dm-mono,DM Mono,monospace)', fontSize:9.5, color:c.color, whiteSpace:'nowrap' }}>{fmtShort(parseDate(feature.date))}</span>
+          <span style={{ fontFamily:'var(--font-dm-mono,DM Mono,monospace)', fontSize:9.5, color:c.color, whiteSpace:'nowrap' }}>
+            {feature.start_date ? `${fmtShort(parseDate(feature.start_date))} → ${fmtShort(parseDate(feature.date))}` : fmtShort(parseDate(feature.date))}
+          </span>
           <div style={{ flex:1, height:2, background:'rgba(255,255,255,0.07)', borderRadius:1 }}>
             <div className="rm-prog" style={{ height:'100%', width:`${st.progress}%`, background:st.color, borderRadius:1 }} />
           </div>
@@ -381,12 +389,12 @@ function Header({ view, setView, filters, setFilters, count, saving, onAdd }: He
 /* ═══════════════════════════════════════════════════════════════
    TIMELINE VIEW
 ═══════════════════════════════════════════════════════════════ */
-function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDate:(id:number,date:string)=>void }) {
+function TimelineView({ features, onEdit, onUpdateDates }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDates:(id:number,date:string,startDate?:string)=>void }) {
   const [dragId,      setDragId]      = useState<number|null>(null)
   const [dragOverDay, setDragOverDay] = useState<number|null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const DAY_W = 46, ROW_H = 88, HDR_H = 62
+  const DAY_W = 46, ROW_H = 64, HDR_H = 62
   const TOTAL = daysBetween(TL_START, TL_END) + 1
   const TOD_X = daysBetween(TL_START, TODAY)
 
@@ -406,12 +414,17 @@ function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; 
   }, [TOTAL])
 
   const { featureRows, numRows } = useMemo(() => {
-    const sorted = [...features].sort((a,b)=>parseDate(a.date).getTime()-parseDate(b.date).getTime())
+    const sorted = [...features].sort((a,b)=>{
+      const aS = a.start_date ? parseDate(a.start_date) : parseDate(a.date)
+      const bS = b.start_date ? parseDate(b.start_date) : parseDate(b.date)
+      return aS.getTime()-bS.getTime()
+    })
     const tails: number[] = [], fRows: Record<number,number> = {}
     sorted.forEach(f => {
-      const x = daysBetween(TL_START, parseDate(f.date))
-      let r = tails.findIndex(t=>x>=t+8)
-      if (r===-1) { r=tails.length; tails.push(x) } else tails[r]=x
+      const startX = daysBetween(TL_START, f.start_date ? parseDate(f.start_date) : parseDate(f.date))
+      const endX   = daysBetween(TL_START, parseDate(f.date))
+      let r = tails.findIndex(t => startX >= t + 3)
+      if (r===-1) { r=tails.length; tails.push(endX) } else tails[r]=endX
       fRows[f.id] = r
     })
     return { featureRows:fRows, numRows:Math.max(tails.length,1) }
@@ -433,11 +446,19 @@ function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     if (dragId!==null && dragOverDay!==null) {
+      const feat = features.find(f=>f.id===dragId)
       const nd = new Date(TL_START.getFullYear(), TL_START.getMonth(), TL_START.getDate()+dragOverDay)
-      onUpdateDate(dragId, dateToStr(nd))
+      if (feat?.start_date) {
+        const delta = dragOverDay - daysBetween(TL_START, parseDate(feat.date))
+        const oldS  = parseDate(feat.start_date)
+        const newS  = new Date(oldS.getTime() + delta*86400000)
+        onUpdateDates(dragId, dateToStr(nd), dateToStr(newS))
+      } else {
+        onUpdateDates(dragId, dateToStr(nd))
+      }
     }
     setDragId(null); setDragOverDay(null)
-  }, [dragId, dragOverDay, onUpdateDate])
+  }, [dragId, dragOverDay, features, onUpdateDates])
 
   const totalH = HDR_H + numRows*ROW_H + 32
   const mono = 'var(--font-dm-mono,DM Mono,monospace)'
@@ -449,7 +470,7 @@ function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; 
         <div style={{ padding:'6px 18px', background:'rgba(139,92,246,0.1)', borderBottom:'1px solid rgba(139,92,246,0.2)', display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:12 }}>📅</span>
           <span style={{ fontFamily:mono, fontSize:10, color:'rgba(139,92,246,0.9)' }}>
-            {dragOverDay!==null ? `Drop to move to ${fmtShort(new Date(TL_START.getFullYear(), TL_START.getMonth(), TL_START.getDate()+dragOverDay))}` : 'Drag over the timeline to pick a new date'}
+            {dragOverDay!==null ? `Drop to move launch to ${fmtShort(new Date(TL_START.getFullYear(), TL_START.getMonth(), TL_START.getDate()+dragOverDay))}` : 'Drag over the timeline to pick a new date'}
           </span>
         </div>
       )}
@@ -497,24 +518,54 @@ function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; 
 
           {/* Features */}
           {features.map(f=>{
-            const c  = CAT[f.cat]    ?? CAT['Core Gameplay']
-            const st = STATUS_CFG[f.status] ?? STATUS_CFG['Planned']
-            const dx  = daysBetween(TL_START, parseDate(f.date))
-            const row = featureRows[f.id] ?? 0
-            const cx  = dx*DAY_W + DAY_W/2
-            const cy  = HDR_H + row*ROW_H
-            const cardW = 200
-            const left  = Math.max(2, Math.min(cx-cardW/2, TOTAL*DAY_W-cardW-2))
+            const c        = CAT[f.cat]    ?? CAT['Core Gameplay']
+            const st       = STATUS_CFG[f.status] ?? STATUS_CFG['Planned']
+            const dx       = daysBetween(TL_START, parseDate(f.date))
+            const row      = featureRows[f.id] ?? 0
+            const cy       = HDR_H + row*ROW_H
             const isDragging = dragId===f.id
-            return (
-              <React.Fragment key={f.id}>
-                <div style={{ position:'absolute', left:cx-0.5, top:HDR_H, height:row*ROW_H+22, width:1, background:`linear-gradient(to bottom,transparent,${c.color}30)`, pointerEvents:'none', zIndex:2 }} />
-                <div draggable onDragStart={e=>{e.dataTransfer.effectAllowed='move';setDragId(f.id)}} onDragEnd={()=>{setDragId(null);setDragOverDay(null)}} style={{ position:'absolute', left:cx-6, top:cy+14, width:13, height:13, borderRadius:'50%', background:isDragging?'rgba(139,92,246,0.5)':c.color, border:'2px solid #07080f', boxShadow:`0 0 10px ${c.color}90`, zIndex:7, cursor:'grab' }} />
-                <div style={{ position:'absolute', left, top:cy+30, width:cardW, zIndex:6, opacity:isDragging?0.3:1 }}>
-                  <FeatureCard feature={f} onEdit={onEdit} onDragStart={()=>setDragId(f.id)} onDragEnd={()=>{setDragId(null);setDragOverDay(null)}} isDragging={isDragging} compact />
-                </div>
-              </React.Fragment>
-            )
+            const hasRange = !!f.start_date
+
+            if (hasRange) {
+              // Bar rendering: spans from start_date to date
+              const sx       = daysBetween(TL_START, parseDate(f.start_date))
+              const barLeft  = sx * DAY_W + 2
+              const barWidth = Math.max(DAY_W - 4, (dx - sx + 1) * DAY_W - 4)
+              return (
+                <React.Fragment key={f.id}>
+                  <div
+                    draggable
+                    onDragStart={e=>{e.dataTransfer.effectAllowed='move';setDragId(f.id)}}
+                    onDragEnd={()=>{setDragId(null);setDragOverDay(null)}}
+                    onClick={()=>{ if(!isDragging) onEdit(f) }}
+                    title={`${f.name}\n${fmtShort(parseDate(f.start_date))} → ${fmtShort(parseDate(f.date))}`}
+                    style={{ position:'absolute', left:barLeft, top:cy+12, width:barWidth, height:34, borderRadius:7, background:isDragging?'rgba(139,92,246,0.2)':c.dim, border:`1px solid ${isDragging?'rgba(139,92,246,0.5)':c.color}40`, borderLeft:`3px solid ${c.color}`, display:'flex', alignItems:'center', paddingLeft:8, cursor:'grab', zIndex:6, opacity:isDragging?0.35:1, overflow:'hidden', userSelect:'none' }}
+                  >
+                    <span style={{ fontSize:11, marginRight:5, flexShrink:0 }}>{c.icon}</span>
+                    <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.88)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1 }}>{f.name}</span>
+                    <span style={{ fontFamily:mono, fontSize:8, color:c.color, padding:'1px 5px', borderRadius:3, background:`${c.color}18`, flexShrink:0, marginRight:6 }}>{f.status.split(' ')[0]}</span>
+                    {/* Progress fill */}
+                    <div style={{ position:'absolute', bottom:0, left:0, width:`${st.progress}%`, height:2, background:c.color, borderRadius:'0 0 7px 0', opacity:0.6 }} />
+                    {/* End cap — launch dot */}
+                    <div style={{ position:'absolute', right:-1, top:'50%', transform:'translateY(-50%)', width:8, height:8, borderRadius:'50%', background:c.color, border:'2px solid #07080f', boxShadow:`0 0 6px ${c.color}` }} />
+                  </div>
+                </React.Fragment>
+              )
+            } else {
+              // Dot + compact card (point-in-time features)
+              const cx   = dx*DAY_W + DAY_W/2
+              const cardW = 200
+              const left  = Math.max(2, Math.min(cx-cardW/2, TOTAL*DAY_W-cardW-2))
+              return (
+                <React.Fragment key={f.id}>
+                  <div style={{ position:'absolute', left:cx-0.5, top:HDR_H, height:row*ROW_H+22, width:1, background:`linear-gradient(to bottom,transparent,${c.color}30)`, pointerEvents:'none', zIndex:2 }} />
+                  <div draggable onDragStart={e=>{e.dataTransfer.effectAllowed='move';setDragId(f.id)}} onDragEnd={()=>{setDragId(null);setDragOverDay(null)}} style={{ position:'absolute', left:cx-6, top:cy+14, width:13, height:13, borderRadius:'50%', background:isDragging?'rgba(139,92,246,0.5)':c.color, border:'2px solid #07080f', boxShadow:`0 0 10px ${c.color}90`, zIndex:7, cursor:'grab' }} />
+                  <div style={{ position:'absolute', left, top:cy+30, width:cardW, zIndex:6, opacity:isDragging?0.3:1 }}>
+                    <FeatureCard feature={f} onEdit={onEdit} onDragStart={()=>setDragId(f.id)} onDragEnd={()=>{setDragId(null);setDragOverDay(null)}} isDragging={isDragging} compact />
+                  </div>
+                </React.Fragment>
+              )
+            }
           })}
         </div>
       </div>
@@ -525,16 +576,30 @@ function TimelineView({ features, onEdit, onUpdateDate }: { features:Feature[]; 
 /* ═══════════════════════════════════════════════════════════════
    MONTH VIEW
 ═══════════════════════════════════════════════════════════════ */
-function MonthView({ features, onEdit, onUpdateDate }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDate:(id:number,date:string)=>void }) {
+function MonthView({ features, onEdit, onUpdateDates }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDates:(id:number,date:string,startDate?:string)=>void }) {
   const [idx,          setIdx]          = useState(0)
   const [dragId,       setDragId]       = useState<number|null>(null)
   const [dragOverCell, setDragOverCell] = useState<number|null>(null)
   const { year, month, name } = MONTHS_LIST[idx]
   const mono = 'var(--font-dm-mono,DM Mono,monospace)'
 
+  type CalEntry = { f: Feature; isStart: boolean }
   const featuresByDay = useMemo(() => {
-    const map: Record<number,Feature[]> = {}
-    features.forEach(f=>{ const d=parseDate(f.date); if(d.getFullYear()===year&&d.getMonth()===month){if(!map[d.getDate()])map[d.getDate()]=[];map[d.getDate()].push(f)} })
+    const map: Record<number, CalEntry[]> = {}
+    features.forEach(f => {
+      const d = parseDate(f.date)
+      if (d.getFullYear()===year && d.getMonth()===month) {
+        if (!map[d.getDate()]) map[d.getDate()]=[]
+        map[d.getDate()].push({ f, isStart: false })
+      }
+      if (f.start_date) {
+        const sd = parseDate(f.start_date)
+        if (sd.getFullYear()===year && sd.getMonth()===month && sd.toDateString()!==d.toDateString()) {
+          if (!map[sd.getDate()]) map[sd.getDate()]=[]
+          map[sd.getDate()].push({ f, isStart: true })
+        }
+      }
+    })
     return map
   }, [features,year,month])
 
@@ -576,7 +641,16 @@ function MonthView({ features, onEdit, onUpdateDate }: { features:Feature[]; onE
                 <div key={di} className={`rm-cal-day${isDropTarget?' drop-target':''}`}
                   onDragOver={day?e=>{e.preventDefault();setDragOverCell(day)}:undefined}
                   onDragLeave={()=>setDragOverCell(null)}
-                  onDrop={()=>{ if(dragId!==null&&day!==null){onUpdateDate(dragId,dateToStr(new Date(year,month,day)));setDragId(null);setDragOverCell(null)} }}
+                  onDrop={()=>{ if(dragId!==null&&day!==null){
+                    const feat=features.find(f=>f.id===dragId)
+                    const newDate=dateToStr(new Date(year,month,day))
+                    if(feat?.start_date){
+                      const delta=Math.round((new Date(year,month,day).getTime()-parseDate(feat.date).getTime())/86400000)
+                      const newS=new Date(parseDate(feat.start_date).getTime()+delta*86400000)
+                      onUpdateDates(dragId,newDate,dateToStr(newS))
+                    } else { onUpdateDates(dragId,newDate) }
+                    setDragId(null);setDragOverCell(null)
+                  } }}
                   style={{ minHeight:90, padding:'8px 6px', borderRight:di<6?'1px solid rgba(255,255,255,0.05)':'none', background:!day?'rgba(0,0,0,0.18)':today?'rgba(244,63,94,0.07)':'transparent' }}
                 >
                   {day && (
@@ -584,13 +658,13 @@ function MonthView({ features, onEdit, onUpdateDate }: { features:Feature[]; onE
                       {today ? <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:24, height:24, background:'#f43f5e', borderRadius:'50%', fontFamily:mono, fontSize:11, fontWeight:700, marginBottom:5 }}>{day}</span>
                         : <div style={{ fontFamily:mono, fontSize:11, color:dayFeatures.length>0?'rgba(255,255,255,0.65)':'rgba(255,255,255,0.28)', marginBottom:5, fontWeight:dayFeatures.length>0?600:400 }}>{day}</div>}
                       <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                        {dayFeatures.slice(0,3).map(f=>{ const c=CAT[f.cat]??CAT['Core Gameplay']; return (
-                          <div key={f.id} className="rm-pill-drag" draggable
-                            onDragStart={e=>{e.dataTransfer.effectAllowed='move';setDragId(f.id)}}
+                        {dayFeatures.slice(0,3).map(({f,isStart})=>{ const c=CAT[f.cat]??CAT['Core Gameplay']; return (
+                          <div key={`${f.id}-${isStart?'s':'e'}`} className="rm-pill-drag" draggable={!isStart}
+                            onDragStart={isStart?undefined:e=>{e.dataTransfer.effectAllowed='move';setDragId(f.id)}}
                             onDragEnd={()=>{setDragId(null);setDragOverCell(null)}}
                             onClick={()=>{ if(!dragId) onEdit(f) }}
-                            style={{ padding:'2px 6px', borderRadius:4, background:dragId===f.id?'rgba(139,92,246,0.15)':c.dim, border:`1px solid ${dragId===f.id?'rgba(139,92,246,0.5)':c.border}`, fontSize:9, fontWeight:700, color:dragId===f.id?'#8b5cf6':c.color, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', opacity:dragId===f.id?0.5:1 }}
-                          >{c.icon} {f.name}</div>
+                            style={{ padding:'2px 6px', borderRadius:4, background:dragId===f.id?'rgba(139,92,246,0.15)':c.dim, border:`1px solid ${dragId===f.id?'rgba(139,92,246,0.5)':c.border}`, borderStyle:isStart?'dashed':'solid', fontSize:9, fontWeight:700, color:dragId===f.id?'#8b5cf6':c.color, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', opacity:isStart?0.45:dragId===f.id?0.5:1 }}
+                          >{isStart?'▶ ':''}{c.icon} {f.name}</div>
                         ) })}
                         {dayFeatures.length>3 && <div style={{ fontSize:9, fontFamily:mono, color:'rgba(255,255,255,0.28)', paddingLeft:3 }}>+{dayFeatures.length-3}</div>}
                       </div>
@@ -617,7 +691,7 @@ function MonthView({ features, onEdit, onUpdateDate }: { features:Feature[]; onE
 /* ═══════════════════════════════════════════════════════════════
    LIST VIEW
 ═══════════════════════════════════════════════════════════════ */
-function ListView({ features, onEdit, onUpdateDate }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDate:(id:number,date:string)=>void }) {
+function ListView({ features, onEdit, onUpdateDates }: { features:Feature[]; onEdit:(f:Feature)=>void; onUpdateDates:(id:number,date:string,startDate?:string)=>void }) {
   const [dragId,       setDragId]       = useState<number|null>(null)
   const [dragOverDate, setDragOverDate] = useState<string|null>(null)
   const mono = 'var(--font-dm-mono,DM Mono,monospace)'
@@ -658,7 +732,15 @@ function ListView({ features, onEdit, onUpdateDate }: { features:Feature[]; onEd
                   const isDropTarget = dragId!==null && dragOverDate===date
                   return (
                     <div key={date} style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
-                      <div onDragOver={e=>{e.preventDefault();setDragOverDate(date)}} onDragLeave={()=>setDragOverDate(null)} onDrop={()=>{ if(dragId!==null){onUpdateDate(dragId,date);setDragId(null);setDragOverDate(null)} }}
+                      <div onDragOver={e=>{e.preventDefault();setDragOverDate(date)}} onDragLeave={()=>setDragOverDate(null)} onDrop={()=>{ if(dragId!==null){
+                        const feat=features.find(f=>f.id===dragId)
+                        if(feat?.start_date){
+                          const delta=Math.round((parseDate(date).getTime()-parseDate(feat.date).getTime())/86400000)
+                          const newS=new Date(parseDate(feat.start_date).getTime()+delta*86400000)
+                          onUpdateDates(dragId,date,dateToStr(newS))
+                        } else { onUpdateDates(dragId,date) }
+                        setDragId(null);setDragOverDate(null)
+                      } }}
                         style={{ width:46, flexShrink:0, textAlign:'right', paddingTop:3, borderRadius:6, padding:'3px 5px 3px 0', background:isDropTarget?'rgba(139,92,246,0.15)':'transparent', outline:isDropTarget?'1px dashed rgba(139,92,246,0.5)':'none', cursor:dragId!==null?'copy':'default', transition:'background 0.12s' }}>
                         <div style={{ fontFamily:mono, fontSize:9, color:today?'#f43f5e':'rgba(255,255,255,0.35)' }}>{d.toLocaleString('en-US',{month:'short'})}</div>
                         <div style={{ fontFamily:syne, fontWeight:800, fontSize:20, letterSpacing:'-0.5px', color:today?'#f43f5e':isDropTarget?'#8b5cf6':'rgba(255,255,255,0.65)', lineHeight:1 }}>{d.getDate()}</div>
@@ -740,10 +822,12 @@ export default function RoadmapApp() {
     setModal(null)
   }
 
-  async function updateDate(id: number, date: string) {
-    setFeatures(p => p.map(f => f.id===id ? {...f,date} : f)) // optimistic
-    const { error } = await supabase.from('features').update({ date }).eq('id', id)
-    if (error) { setError(error.message); loadFeatures() } // rollback on error
+  async function updateDates(id: number, date: string, startDate?: string) {
+    setFeatures(p => p.map(f => f.id===id ? {...f, date, ...(startDate!==undefined ? {start_date:startDate} : {})} : f))
+    const payload: Record<string,string> = { date }
+    if (startDate !== undefined) payload.start_date = startDate
+    const { error } = await supabase.from('features').update(payload).eq('id', id)
+    if (error) { setError(error.message); loadFeatures() }
   }
 
   if (loading) return (
@@ -765,9 +849,9 @@ export default function RoadmapApp() {
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <Header view={view} setView={setView} filters={filters} setFilters={setFilters} count={visible.length} saving={saving} onAdd={()=>setModal({feature:{...EMPTY},isNew:true})} />
         <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-          {view==='timeline' && <TimelineView key="tl" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDate={updateDate} />}
-          {view==='month'    && <MonthView    key="mo" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDate={updateDate} />}
-          {view==='list'     && <ListView     key="li" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDate={updateDate} />}
+          {view==='timeline' && <TimelineView key="tl" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDates={updateDates} />}
+          {view==='month'    && <MonthView    key="mo" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDates={updateDates} />}
+          {view==='list'     && <ListView     key="li" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDates={updateDates} />}
         </div>
       </div>
       {modal && <FeatureModal feature={modal.feature} isNew={modal.isNew} saving={saving} onClose={()=>setModal(null)} onSave={handleSave} onDelete={handleDelete} />}

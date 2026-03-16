@@ -9,6 +9,7 @@ export interface Feature {
   id:          number
   name:        string
   date:        string
+  start_date:  string
   description: string
   cat:         string
   status:      string
