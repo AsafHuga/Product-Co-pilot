@@ -119,14 +119,15 @@ function FeatureForm({ form, onChange }: { form: FeatureInput; onChange: (k: key
    FEATURE MODAL
 ═══════════════════════════════════════════════════════════════ */
 interface ModalProps {
-  feature: Feature | FeatureInput
-  isNew:   boolean
-  saving:  boolean
-  onClose: () => void
-  onSave:  (f: Feature | FeatureInput) => void
-  onDelete:(id: number) => void
+  feature:  Feature | FeatureInput
+  isNew:    boolean
+  saving:   boolean
+  saveErr?: string | null
+  onClose:  () => void
+  onSave:   (f: Feature | FeatureInput) => void
+  onDelete: (id: number) => void
 }
-function FeatureModal({ feature, isNew, saving, onClose, onSave, onDelete }: ModalProps) {
+function FeatureModal({ feature, isNew, saving, saveErr, onClose, onSave, onDelete }: ModalProps) {
   const [editing, setEditing] = useState(!!isNew)
   const [form, setForm]       = useState<Feature | FeatureInput>({ ...feature })
 
@@ -206,6 +207,11 @@ function FeatureModal({ feature, isNew, saving, onClose, onSave, onDelete }: Mod
         )}
 
         {/* Footer */}
+        {saveErr && (
+          <div style={{ margin:'12px 0 0', padding:'8px 12px', borderRadius:8, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', fontFamily:'var(--font-dm-mono,DM Mono,monospace)', fontSize:10, color:'#f43f5e' }}>
+            ⚠ {saveErr}
+          </div>
+        )}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:18 }}>
           <div>
             {!isNew && 'id' in feature && (
@@ -776,6 +782,7 @@ export default function RoadmapApp() {
   const [view,     setView]     = useState('timeline')
   const [filters,  setFilters]  = useState<string[]>([])
   const [modal,    setModal]    = useState<{feature: Feature|FeatureInput; isNew:boolean}|null>(null)
+  const [saveErr,  setSaveErr]  = useState<string|null>(null)
 
   // Load features + real-time subscription
   useEffect(() => {
@@ -790,7 +797,7 @@ export default function RoadmapApp() {
   async function loadFeatures() {
     const { data, error } = await supabase.from('features').select('*').order('date')
     if (error) setError(error.message)
-    else setFeatures(data ?? [])
+    else setFeatures((data ?? []).map(f => ({ ...f, start_date: f.start_date ?? '' })))
     setLoading(false)
   }
 
@@ -801,15 +808,18 @@ export default function RoadmapApp() {
 
   async function handleSave(f: Feature|FeatureInput) {
     setSaving(true)
+    setSaveErr(null)
+    const normalized = { ...f, start_date: (f as Feature).start_date ?? '' }
     if (modal?.isNew) {
-      const { error } = await supabase.from('features').insert(f as FeatureInput)
-      if (error) setError(error.message)
+      const { error } = await supabase.from('features').insert(normalized as FeatureInput)
+      if (error) { setSaving(false); setSaveErr(error.message); return }
     } else {
-      const { id, ...updates } = f as Feature
+      const { id, ...updates } = normalized as Feature
       const { error } = await supabase.from('features').update(updates).eq('id', id)
-      if (error) setError(error.message)
+      if (error) { setSaving(false); setSaveErr(error.message); return }
     }
     setSaving(false)
+    setSaveErr(null)
     setModal(null)
   }
 
@@ -854,7 +864,7 @@ export default function RoadmapApp() {
           {view==='list'     && <ListView     key="li" features={visible} onEdit={f=>setModal({feature:f,isNew:false})} onUpdateDates={updateDates} />}
         </div>
       </div>
-      {modal && <FeatureModal feature={modal.feature} isNew={modal.isNew} saving={saving} onClose={()=>setModal(null)} onSave={handleSave} onDelete={handleDelete} />}
+      {modal && <FeatureModal feature={modal.feature} isNew={modal.isNew} saving={saving} saveErr={saveErr} onClose={()=>{setModal(null);setSaveErr(null)}} onSave={handleSave} onDelete={handleDelete} />}
     </div>
   )
 }
